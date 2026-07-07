@@ -10,15 +10,37 @@ const userSchema = new mongoose.Schema({
         required:true,
         unique:true,
     },
-    password:{
-        type:String,
-        required:true,
+    mobile: {
+      type: String,
+      required: function () {
+        return !this.googleId;
+      },
     },
-    role:{
+    password: {
+      type: String,
+      required: function () {
+        return !this.googleId;
+      },
+    },
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    avatar: {
+      type: String,
+    },
+    role: {
         type:String,
-        enum:['user','admin'],
-        default:'user',
-    }
+        enum:['trader', 'admin', 'manager'],
+        default:'trader',
+    },
+    resetPasswordToken: {
+        type: String,
+    },
+    resetPasswordExpires: {
+        type: Date,
+    },
 },
     {timestamps:true}
 );
