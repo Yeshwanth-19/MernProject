@@ -13,13 +13,13 @@ const userSchema = new mongoose.Schema({
     mobile: {
       type: String,
       required: function () {
-        return !this.googleId;
+        return !this.googleId && this.isNew;
       },
     },
     password: {
       type: String,
       required: function () {
-        return !this.googleId;
+        return !this.googleId && this.isNew;
       },
     },
     googleId: {
@@ -40,6 +40,35 @@ const userSchema = new mongoose.Schema({
     },
     resetPasswordExpires: {
         type: Date,
+    },
+    kycVerified: {
+        type: Boolean,
+        default: false,
+    },
+    kycStatus: {
+        type: String,
+        enum: ['not_submitted', 'pending', 'approved', 'rejected'],
+        default: 'not_submitted',
+    },
+    kycVerifiedAt: {
+        type: Date,
+    },
+    kycSubmittedAt: {
+        type: Date,
+    },
+    kycRejectionReason: {
+        type: String,
+    },
+    encryptedPan: {
+        type: String,
+    },
+    aadhaarLast: {
+        type: String,
+    },
+    kycDocuments: {
+        aadhaarFront: String,
+        aadhaarBack: String,
+        panCard: String,
     },
 },
     {timestamps:true}

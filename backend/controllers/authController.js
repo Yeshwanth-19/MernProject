@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { generateToken } from '../middleware/authMiddleware.js';
 import { sendPasswordResetEmail } from '../utils/sendEmail.js';
 import { verifyGoogleToken } from '../utils/verifyGoogleToken.js';
+import { resolveEncryptedPassword } from '../utils/crypto.js';
 
 const hashResetToken = (token) =>
   crypto.createHash('sha256').update(token).digest('hex');
@@ -16,6 +17,22 @@ export const registerUser = async (req, res) => {
         message: 'Please provide name, email, password, and mobile number',
       });
     }
+
+    let plainPassword = password;
+
+
+    try {
+      plainPassword = resolveEncryptedPassword(password, true);
+    } catch (decryptError) {
+      console.error(decryptError);
+      return res.status(400).json({ message: 'Invalid encrypted password' });
+    }
+
+
+    if (plainPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
     const normalizedEmail = email.trim().toLowerCase();
     const userExist = await User.findOne({ email: normalizedEmail });
 
@@ -23,7 +40,7 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(plainPassword, salt);
 
     const user = await User.create({
       name,
@@ -35,13 +52,7 @@ export const registerUser = async (req, res) => {
 
     res.status(201).json({
       message: 'User registered successfully',
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
-        role: user.role,
-      },
+      user: formatUserResponse(user),
       token: generateToken(user._id),
     });
   } catch (error) {
@@ -64,6 +75,15 @@ export const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
+    let plainPassword = password;
+    try {
+      plainPassword = resolveEncryptedPassword(password, true);
+    } catch (decryptError) {
+      console.error(decryptError);
+      return res.status(400).json({ message: 'Invalid encrypted password' });
+    }
+
+
     const user = await User.findOne({ email: email.trim().toLowerCase() });
 
     if (!user) {
@@ -76,21 +96,15 @@ export const loginUser = async (req, res) => {
       });
     }
 
-    const match = await bcrypt.compare(password, user.password);
+    const match = await bcrypt.compare(plainPassword, user.password);
 
     if (!match) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     res.status(200).json({
+      user: formatUserResponse(user),
       token: generateToken(user._id),
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
-        role: user.role,
-      },
     });
   } catch (error) {
     console.error(error);
@@ -105,6 +119,11 @@ const formatUserResponse = (user) => ({
   mobile: user.mobile,
   role: user.role,
   avatar: user.avatar,
+  kycVerified: user.kycVerified,
+  kycStatus: user.kycStatus,
+  kycVerifiedAt: user.kycVerifiedAt,
+  kycSubmittedAt: user.kycSubmittedAt,
+  kycRejectionReason: user.kycRejectionReason,
 });
 
 export const googleLogin = async (req, res) => {
@@ -220,7 +239,18 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Please provide token and new password' });
     }
 
-    if (password.length < 6) {
+    let plainPassword = password;
+
+
+    try {
+      plainPassword = resolveEncryptedPassword(password, true);
+    } catch (decryptError) {
+      console.error(decryptError);
+      return res.status(400).json({ message: 'Invalid encrypted password' });
+    }
+
+
+    if (plainPassword.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters' });
     }
 
@@ -235,7 +265,7 @@ export const resetPassword = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(password, salt);
+    user.password = await bcrypt.hash(plainPassword, salt);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
